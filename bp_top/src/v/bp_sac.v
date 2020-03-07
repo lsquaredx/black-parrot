@@ -1,5 +1,4 @@
-
-module bp_streaming_accelerator_complex
+module bp_sac
  import bp_common_pkg::*;
  import bp_common_aviary_pkg::*;
  import bp_common_cfg_link_pkg::*;
@@ -8,7 +7,6 @@ module bp_streaming_accelerator_complex
  import bsg_noc_pkg::*;
  import bsg_wormhole_router_pkg::*;
  #(parameter bp_params_e bp_params_p = e_bp_inv_cfg
-   , parameter bp_enable_accelerator_p = 0
    `declare_bp_proc_params(bp_params_p)
 
    , localparam coh_noc_ral_link_width_lp = `bsg_ready_and_link_sif_width(coh_noc_flit_width_p)
@@ -37,12 +35,6 @@ module bp_streaming_accelerator_complex
   bp_coh_ready_and_link_s [E:W][sac_y_dim_p-1:0] lce_cmd_hor_link_li, lce_cmd_hor_link_lo;
   bp_coh_ready_and_link_s [S:N]                  lce_cmd_ver_link_li, lce_cmd_ver_link_lo;
 
-  // TODO: Insert tiles here
-  //
-  // Note: Probably what makes sense is a pseudo-hardware generator here.
-  //   i.e. we leave `accelerator_type_1, `accelerator_type_2
-  //   and then substitute based on a parameter pattern...
-  //
 
   for (genvar j=0; j < sac_y_dim_p; j++)
     begin : y
@@ -50,7 +42,7 @@ module bp_streaming_accelerator_complex
                                                   coh_noc_x_cord_width_p'(sac_x_dim_p-1)};
        if (sac_x_dim_p>0)
          begin : node
-           bp_streaming_accelerator_tile_node
+           bp_sacc_tile_node
              #(.bp_params_p(bp_params_p))
              accel_tile_node
                (.core_clk_i(core_clk_i)

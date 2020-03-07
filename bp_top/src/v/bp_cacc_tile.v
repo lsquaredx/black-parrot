@@ -1,4 +1,4 @@
-module bp_cac_tile
+module bp_cacc_tile
  import bp_common_pkg::*;
  import bp_common_aviary_pkg::*;
  import bp_cce_pkg::*;
@@ -10,7 +10,6 @@ module bp_cac_tile
    import bsg_wormhole_router_pkg::*;
   
  #(parameter bp_params_e bp_params_p = e_bp_inv_cfg
-   , parameter bp_enable_accelerator_p = 0
    `declare_bp_proc_params(bp_params_p)
    `declare_bp_lce_cce_if_widths(cce_id_width_p, lce_id_width_p, paddr_width_p, lce_assoc_p, dword_width_p, cce_block_width_p)
 
@@ -250,11 +249,10 @@ module bp_cac_tile
      );
 
 
- 
-  bp_cac_example
-   #(.bp_params_p(bp_params_p)
-     , .bp_enable_accelerator_p(bp_enable_accelerator_p)
-     )
+ if(cacc_type_p == e_cacc_vdp)
+   begin: cacc_vdp
+   bp_cacc_vdp
+   #(.bp_params_p(bp_params_p))
    accelerator_link
     (.clk_i(clk_i)
      ,.reset_i(reset_i)
@@ -286,7 +284,7 @@ module bp_cac_tile
      ,.lce_cmd_yumi_o(lce_cmd_yumi_lo)
 
      );
-
+  end
 
 endmodule
 

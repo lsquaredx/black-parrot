@@ -1,4 +1,4 @@
-module bp_sac_example
+module bp_sacc_vdp
  import bp_common_pkg::*;
  import bp_common_aviary_pkg::*;
  import bp_be_pkg::*;
@@ -8,7 +8,6 @@ module bp_sac_example
  import bp_me_pkg::*;
  import bp_be_dcache_pkg::*;  
   #(parameter bp_params_e bp_params_p = e_bp_inv_cfg
-    , parameter bp_enable_accelerator_p = 0
     `declare_bp_proc_params(bp_params_p)
     `declare_bp_lce_cce_if_widths(cce_id_width_p, lce_id_width_p, paddr_width_p, lce_assoc_p, dword_width_p, cce_block_width_p)
     `declare_bp_me_if_widths(paddr_width_p, cce_block_width_p, lce_id_width_p, lce_assoc_p)

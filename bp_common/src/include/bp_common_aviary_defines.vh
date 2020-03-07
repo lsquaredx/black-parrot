@@ -28,6 +28,16 @@ typedef enum logic
   ,e_cce_mode_normal
 } bp_cce_mode_e;
 
+
+typedef enum logic [15:0]{
+  e_sacc_vdp
+} bp_sacc_type_e;
+
+typedef enum logic [15:0]{
+  e_cacc_vdp
+} bp_cacc_type_e;
+
+
 `define declare_bp_cfg_bus_s(vaddr_width_mp, core_id_width_mp, cce_id_width_mp, lce_id_width_mp, cce_pc_width_mp, cce_instr_width_mp) \
   typedef struct packed                                                                            \
   {                                                                                                \
@@ -94,7 +104,8 @@ typedef struct packed
   integer mc_y_dim;
   integer cac_x_dim;
   integer sac_x_dim;
-
+  integer cacc_type;
+  integer sacc_type;
   integer coherent_l1;
 
   integer vaddr_width;
@@ -175,6 +186,8 @@ typedef struct packed
   , localparam cac_y_dim_p = cc_y_dim_p                                                            \
   , localparam sac_x_dim_p = proc_param_lp.sac_x_dim                                               \
   , localparam sac_y_dim_p = cc_y_dim_p                                                            \
+  , localparam cacc_type_p = proc_param_lp.cacc_type                                               \
+  , localparam sacc_type_p = proc_param_lp.sacc_type                                               \
                                                                                                    \
   , localparam num_core_p  = cc_x_dim_p * cc_y_dim_p                                               \
   , localparam num_io_p    = ic_x_dim_p * ic_y_dim_p                                               \
