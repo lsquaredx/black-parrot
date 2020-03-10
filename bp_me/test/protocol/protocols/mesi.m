@@ -17,10 +17,10 @@
 const
   ProcCount: CFG_PROCS;  -- number processors
   ValueCount: 2;         -- number of data values.
-  VC0: 0;                -- low priority - LCE Req
-  VC1: 1;                -- LCE Cmd
-  VC2: 2;                -- LCE Resp
-  NumVCs: VC2 - VC0 + 1;
+  ReqNet: 0;                -- low priority - LCE Req
+  CmdNet: 1;                -- LCE Cmd
+  RespNet: 2;                -- LCE Resp
+  NumVCs: RespNet - ReqNet + 1;
   -- TODO: what is max messages?
   NetMax: 2*ProcCount;
 
@@ -35,7 +35,7 @@ type
   Node: union { Home , Proc };
   Count: 0..ProcCount; -- integer range of number of sharers
 
-  VCType: VC0..NumVCs-1;
+  VCType: ReqNet..NumVCs-1;
 
   MessageType: enum { LceRdReq, -- req to dir for read
                       LceWrReq, -- req to dir for write
@@ -216,7 +216,7 @@ Begin
     then
       if n != rqst
       then
-        Send(InvTagCmd, n, HomeType, VC1, UNDEFINED, false, UNDEFINED, UNDEFINED);
+        Send(InvTagCmd, n, HomeType, CmdNet, UNDEFINED, false, UNDEFINED, UNDEFINED);
       endif;
     endif;
   endfor;
@@ -260,7 +260,7 @@ Begin
 
         -- send commands
         --put "sending data cmd cce and set tag cmd from H_I\n";
-        Send(TagAndDataCmd, msg.src, HomeType, VC1, HomeNode.val, false, UNDEFINED, P_E);
+        Send(TagAndDataCmd, msg.src, HomeType, CmdNet, HomeNode.val, false, UNDEFINED, P_E);
 
       case LceWrReq:
         HomeNode.state := H_CA;
@@ -274,7 +274,7 @@ Begin
 
         -- send commands
         --put "sending data cmd cce and set tag cmd from H_I\n";
-        Send(TagAndDataCmd, msg.src, HomeType, VC1, HomeNode.val, false, UNDEFINED, P_M);
+        Send(TagAndDataCmd, msg.src, HomeType, CmdNet, HomeNode.val, false, UNDEFINED, P_M);
 
       else
         ErrorUnhandledMsg(msg, HomeType);
@@ -295,7 +295,7 @@ Begin
 
         -- send commands
         --put "sending data cmd and set tag cmd from H_S\n";
-        Send(TagAndDataCmd, msg.src, HomeType, VC1, HomeNode.val, false, UNDEFINED, P_S);
+        Send(TagAndDataCmd, msg.src, HomeType, CmdNet, HomeNode.val, false, UNDEFINED, P_S);
 
       case LceWrReq:
         -- there are two cases for a write request when block is cached in shared:
@@ -317,7 +317,7 @@ Begin
           if (cnt = 1)
           then
             --put "sending set tag wakeup cmd from H_S\n";
-            Send(SetTagWakeupCmd, msg.src, HomeType, VC1, UNDEFINED, false, UNDEFINED, P_M);
+            Send(SetTagWakeupCmd, msg.src, HomeType, CmdNet, UNDEFINED, false, UNDEFINED, P_M);
             HomeNode.state := H_CA;
           else
             HomeNode.state := H_IA;
@@ -347,7 +347,7 @@ Begin
         HomeNode.state := H_IA;
         -- send invalidation to owner
         --put "sending invalidations from H_E\n";
-        Send(InvTagCmd, HomeNode.owner, HomeType, VC1, UNDEFINED, false, UNDEFINED, UNDEFINED);
+        Send(InvTagCmd, HomeNode.owner, HomeType, CmdNet, UNDEFINED, false, UNDEFINED, UNDEFINED);
         HomeNode.ack := 1; -- cached in E by single cache
         HomeNode.upgrade := false; -- not an upgrade
         HomeNode.transfer := true; -- transfer
@@ -360,7 +360,7 @@ Begin
         HomeNode.state := H_IA;
         -- send invalidations
         --put "sending invalidations from H_E\n";
-        Send(InvTagCmd, HomeNode.owner, HomeType, VC1, UNDEFINED, false, UNDEFINED, UNDEFINED);
+        Send(InvTagCmd, HomeNode.owner, HomeType, CmdNet, UNDEFINED, false, UNDEFINED, UNDEFINED);
         HomeNode.ack := 1; -- cached in E by single cache
         HomeNode.upgrade := false; -- not an upgrade
         HomeNode.transfer := true; -- transfer
@@ -380,7 +380,7 @@ Begin
       case LceRdReq:
         HomeNode.state := H_IA;
         --put "sending invalidations from H_M\n";
-        Send(InvTagCmd, HomeNode.owner, HomeType, VC1, UNDEFINED, false, UNDEFINED, UNDEFINED);
+        Send(InvTagCmd, HomeNode.owner, HomeType, CmdNet, UNDEFINED, false, UNDEFINED, UNDEFINED);
         HomeNode.ack := 1; -- cached in E by single cache
         HomeNode.upgrade := false; -- not an upgrade
         HomeNode.transfer := true; -- transfer
@@ -392,7 +392,7 @@ Begin
       case LceWrReq:
         HomeNode.state := H_IA;
         --put "sending invalidations from H_M\n";
-        Send(InvTagCmd, HomeNode.owner, HomeType, VC1, UNDEFINED, false, UNDEFINED, UNDEFINED);
+        Send(InvTagCmd, HomeNode.owner, HomeType, CmdNet, UNDEFINED, false, UNDEFINED, UNDEFINED);
         HomeNode.ack := 1; -- cached in E by single cache
         HomeNode.upgrade := false; -- not an upgrade
         HomeNode.transfer := true; -- transfer
@@ -423,16 +423,16 @@ Begin
           if (HomeNode.upgrade = true)
           then
             --put "sending set tag wakeup from H_IA\n";
-            Send(SetTagWakeupCmd, HomeNode.reqLce, HomeType, VC1, UNDEFINED, false, UNDEFINED, P_M);
+            Send(SetTagWakeupCmd, HomeNode.reqLce, HomeType, CmdNet, UNDEFINED, false, UNDEFINED, P_M);
             HomeNode.state := H_CA;
           elsif (HomeNode.transfer = true)
           then
             --put "sending set tag, tr, and writeback from H_IA\n";
-            Send(TrCmd, HomeNode.trLce, HomeType, VC1, UNDEFINED, false, HomeNode.reqLce, HomeNode.nextState);
+            Send(TrCmd, HomeNode.trLce, HomeType, CmdNet, UNDEFINED, false, HomeNode.reqLce, HomeNode.nextState);
             HomeNode.state := H_TWBA;
           else
             --put "sending set tag and data cmd from H_IA\n";
-            Send(TagAndDataCmd, HomeNode.reqLce, HomeType, VC1, HomeNode.val, false, UNDEFINED, HomeNode.nextState);
+            Send(TagAndDataCmd, HomeNode.reqLce, HomeType, CmdNet, HomeNode.val, false, UNDEFINED, HomeNode.nextState);
             HomeNode.state := H_CA;
           endif;
         endif;
@@ -538,13 +538,13 @@ Begin
       switch msg.mtype
         case TrCmd:
           --put "sending data cmd lce from P_I\n";
-          Send(TagAndDataCmd, msg.target, p, VC1, pv, false, UNDEFINED, msg.nextState);
+          Send(TagAndDataCmd, msg.target, p, CmdNet, pv, false, UNDEFINED, msg.nextState);
           if (Procs[p].dirty)
           else
-            Send(LceDataResp, msg.src, p, VC2, pv, false, UNDEFINED, UNDEFINED);
+            Send(LceDataResp, msg.src, p, RespNet, pv, false, UNDEFINED, UNDEFINED);
             Procs[p].dirty := false;
           then
-            Send(LceDataRespNull, msg.src, p, VC2, pv, false, UNDEFINED, UNDEFINED);
+            Send(LceDataRespNull, msg.src, p, RespNet, pv, false, UNDEFINED, UNDEFINED);
           endif;
           -- stay in invalid
         else
@@ -556,21 +556,21 @@ Begin
       switch msg.mtype
         case InvTagCmd:
           --put "sending inv tag ack from P_DT\n";
-          Send(InvTagAck, msg.src, p, VC2, UNDEFINED, false, UNDEFINED, UNDEFINED);
+          Send(InvTagAck, msg.src, p, RespNet, UNDEFINED, false, UNDEFINED, UNDEFINED);
           ps := P_DT;
         case TrCmd:
           --put "sending data cmd lce from P_DT\n";
-          Send(TagAndDataCmd, msg.target, p, VC1, pv, false, UNDEFINED, msg.nextState);
-          Send(LceDataRespNull, msg.src, p, VC2, pv, false, UNDEFINED, UNDEFINED);
+          Send(TagAndDataCmd, msg.target, p, CmdNet, pv, false, UNDEFINED, msg.nextState);
+          Send(LceDataRespNull, msg.src, p, RespNet, pv, false, UNDEFINED, UNDEFINED);
           -- stay in current state
         case TagAndDataCmd:
           -- record data value received
           pv := msg.val;
           ps := msg.nextState;
-          Send(CohAck, HomeType, p, VC2, UNDEFINED, false, UNDEFINED, msg.nextState);
+          Send(CohAck, HomeType, p, RespNet, UNDEFINED, false, UNDEFINED, msg.nextState);
         case SetTagWakeupCmd:
           ps := P_M;
-          Send(CohAck, msg.src, p, VC2, UNDEFINED, false, UNDEFINED, P_M);
+          Send(CohAck, msg.src, p, RespNet, UNDEFINED, false, UNDEFINED, P_M);
         else
           ErrorUnhandledMsg(msg, p);
       endswitch;
@@ -580,7 +580,7 @@ Begin
     switch msg.mtype
       case InvTagCmd:
         --put "sending inv tag ack from P_S\n";
-        Send(InvTagAck, msg.src, p, VC2, UNDEFINED, false, UNDEFINED, UNDEFINED);
+        Send(InvTagAck, msg.src, p, RespNet, UNDEFINED, false, UNDEFINED, UNDEFINED);
         ps := P_I;
       else
         ErrorUnhandledMsg(msg, p);
@@ -591,7 +591,7 @@ Begin
     switch msg.mtype
       case InvTagCmd:
         --put "sending inv tag ack from P_E\n";
-        Send(InvTagAck, msg.src, p, VC2, UNDEFINED, false, UNDEFINED, UNDEFINED);
+        Send(InvTagAck, msg.src, p, RespNet, UNDEFINED, false, UNDEFINED, UNDEFINED);
         -- block is clean, so go to invalid state
         ps := P_I;
       else
@@ -603,7 +603,7 @@ Begin
     switch msg.mtype
       case InvTagCmd:
         --put "sending inv tag ack from P_M\n";
-        Send(InvTagAck, msg.src, p, VC2, UNDEFINED, false, UNDEFINED, UNDEFINED);
+        Send(InvTagAck, msg.src, p, RespNet, UNDEFINED, false, UNDEFINED, UNDEFINED);
         -- block is dirty, go to invalid dirty state
         ps := P_I;
       else
@@ -666,7 +666,7 @@ ruleset n:Proc do
       (p.state = P_I & p.dirty = false)
         ==>
       --put "LceRdReq from Proc "; put n; put " in state "; put p.state;
-      Send(LceRdReq, HomeType, n, VC0, UNDEFINED, false, UNDEFINED, UNDEFINED);
+      Send(LceRdReq, HomeType, n, ReqNet, UNDEFINED, false, UNDEFINED, UNDEFINED);
       p.state := P_DT;
     endrule;
 
@@ -674,7 +674,7 @@ ruleset n:Proc do
       (p.state = P_I & p.dirty = false)
         ==>
       --put "LceWrReq from Proc "; put n; put " in state "; put p.state;
-      Send(LceWrReq, HomeType, n, VC0, UNDEFINED, false, UNDEFINED, UNDEFINED);
+      Send(LceWrReq, HomeType, n, ReqNet, UNDEFINED, false, UNDEFINED, UNDEFINED);
       p.state := P_DT;
     endrule;
 
@@ -682,7 +682,7 @@ ruleset n:Proc do
       (p.state = P_S)
         ==>
       --put "LceWrReq from Proc "; put n; put " in state "; put p.state;
-      Send(LceWrReq, HomeType, n, VC0, UNDEFINED, true, UNDEFINED, UNDEFINED);
+      Send(LceWrReq, HomeType, n, ReqNet, UNDEFINED, true, UNDEFINED, UNDEFINED);
       p.state := P_DT;
     endrule;
 
