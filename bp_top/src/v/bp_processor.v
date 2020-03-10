@@ -161,7 +161,7 @@ bp_mem_complex
    ,.dram_resp_link_i(dram_resp_link_i)
    );
 
-bp_cac
+bp_cacc_complex
  #(.bp_params_p(bp_params_p))
  cac
   (.core_clk_i(core_clk_i)
@@ -180,7 +180,7 @@ bp_cac
    ,.coh_resp_link_o(coh_resp_hor_link_li[E])
    );
 
-bp_sac
+bp_sacc_complex
  #(.bp_params_p(bp_params_p))
  sac
   (.core_clk_i(core_clk_i)

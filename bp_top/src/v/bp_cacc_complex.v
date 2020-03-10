@@ -1,4 +1,4 @@
-module bp_cac
+module bp_cacc_complex
  import bp_common_pkg::*;
  import bp_common_aviary_pkg::*;
  import bp_common_cfg_link_pkg::*;
