@@ -2,11 +2,8 @@
 -- BlackParrot MESI Coherence Protocol
 --
 -- Notes:
--- 1. Replacement is not modeled since we use the single address assumption. The LCEs are not
---    allowed to evict a block on their own, only the CCE can evict a block.
--- 2. "Message delivery cannot be assumed to be in the same order as they were sent, even for
---     the same sender and receiver pair"
--- 3. A cache is made owner or added to sharers when the CCE / Directory receives the ack. Sharers
+-- 1. Unordered networks are modeled (inherited from the example MESI protocol file)
+-- 2. A cache is made owner or added to sharers when the CCE / Directory receives the ack. Sharers
 --    are cleared at ack receipt.
 --
 ----------------------------------------------------------------------
@@ -15,13 +12,12 @@
 -- Constants
 ----------------------------------------------------------------------
 const
-  ProcCount: CFG_PROCS;  -- number processors
-  ValueCount: 2;         -- number of data values.
-  ReqNet: 0;                -- low priority - LCE Req
-  CmdNet: 1;                -- LCE Cmd
-  RespNet: 2;                -- LCE Resp
+  ProcCount: CFG_PROCS;        -- number processors
+  ValueCount: 2;               -- number of data values.
+  ReqNet: 0;                   -- low priority - LCE Req
+  CmdNet: 1;                   -- LCE Cmd
+  RespNet: 2;                  -- LCE Resp
   NumVCs: RespNet - ReqNet + 1;
-  -- TODO: what is max messages?
   NetMax: 2*ProcCount;
 
 
@@ -256,7 +252,6 @@ Begin
 
   -- invalid in directory - immediately reply with current data and set tag
   case H_I:
-    assert(cnt = 0) "home invalid, but sharers count not 0";
     switch msg.mtype
       case LceRdReq:
         HomeNode.state := CCE_CA;
@@ -351,7 +346,6 @@ Begin
     endswitch;
 
   case H_E:
-    assert(cnt = 0) "home exclusive, but sharers count not 0";
     switch msg.mtype
       case LceRdReq:
         HomeNode.state := CCE_IA;
@@ -385,7 +379,6 @@ Begin
 
   -- block in modified, cached in a single LCE
   case H_M:
-    assert(cnt = 0) "home modified, but sharers count not 0";
     switch msg.mtype
       case LceRdReq:
         HomeNode.state := CCE_IA;
@@ -417,7 +410,7 @@ Begin
 
 
 
-  -- "Transient" states
+  -- CCE Processing States
 
   -- waiting for invalidation acks
   case CCE_IA:
@@ -458,7 +451,7 @@ Begin
       case CohAck:
         HomeNode.state := HomeNode.nextHomeState;
         HomeNode.transfer := false;
-        assert(msg.src = HomeNode.reqLce) "Coh Ack arrived from other than requesting LCE";
+        --assert(msg.src = HomeNode.reqLce) "Coh Ack arrived from other than requesting LCE";
         if (HomeNode.nextHomeState = H_E | HomeNode.nextHomeState = H_M)
         then
           RemoveFromSharersList(msg.src);
@@ -482,7 +475,7 @@ Begin
         HomeNode.state := CCE_TWB;
 
         HomeNode.transfer := false;
-        assert(msg.src = HomeNode.reqLce) "Coh Ack arrived from other than requesting LCE";
+        --assert(msg.src = HomeNode.reqLce) "Coh Ack arrived from other than requesting LCE";
         if (HomeNode.nextHomeState = H_E | HomeNode.nextHomeState = H_M)
         then
           RemoveFromSharersList(msg.src);
@@ -500,7 +493,7 @@ Begin
         HomeNode.val := msg.val;
       case LceDataRespNull:
         HomeNode.state := CCE_CA;
-        assert(msg.val = HomeNode.val) "TWB arrived with bad value";
+        --assert(msg.val = HomeNode.val) "TWB arrived with bad value";
         --HomeNode.val := msg.val;
       else
         ErrorUnhandledMsg(msg, HomeType);
@@ -516,7 +509,7 @@ Begin
         HomeNode.val := msg.val;
       case LceDataRespNull:
         HomeNode.state := HomeNode.nextHomeState;
-        assert(msg.val = HomeNode.val) "TWB arrived with bad value";
+        --assert(msg.val = HomeNode.val) "TWB arrived with bad value";
         --HomeNode.val := msg.val;
       else
         ErrorUnhandledMsg(msg, HomeType);
@@ -532,7 +525,7 @@ Begin
         HomeNode.val := msg.val;
       case LceDataRespNull:
         HomeNode.state := HomeNode.nextHomeState;
-        assert(msg.val = HomeNode.val) "WB arrived with bad value";
+        --assert(msg.val = HomeNode.val) "WB arrived with bad value";
         --HomeNode.val := msg.val;
       else
         ErrorUnhandledMsg(msg, HomeType);
@@ -618,7 +611,6 @@ Begin
         ps := P_I;
       case WBCmd:
         --put "sending null WB resp from P_S\n";
-        assert(Procs[p].dirty = false) "P_S has dirty block";
         Send(LceDataRespNull, msg.src, p, RespNet, pv, false, UNDEFINED, UNDEFINED);
       else
         ErrorUnhandledMsg(msg, p);
@@ -634,7 +626,6 @@ Begin
         ps := P_I;
       case WBCmd:
         --put "sending null WB resp from P_E\n";
-        assert(Procs[p].dirty = false) "P_E has dirty block";
         Send(LceDataRespNull, msg.src, p, RespNet, pv, false, UNDEFINED, UNDEFINED);
       else
         ErrorUnhandledMsg(msg, p);
@@ -840,12 +831,18 @@ endstartstate;
 -- Invariants
 ----------------------------------------------------------------------
 
--- Directory Invariants
-
+-- Ownership Invariants
 invariant "Invalid implies empty owner"
   HomeNode.state = H_I
     ->
   IsUndefined(HomeNode.owner);
+
+invariant "Shared implies empty owner"
+  HomeNode.state = H_S
+    ->
+  IsUndefined(HomeNode.owner);
+
+-- Sharers List Invariants
 
 invariant "Modified implies empty sharers list"
   HomeNode.state = H_M
@@ -862,10 +859,7 @@ invariant "Exclusive implies empty sharer list"
     ->
   MultiSetCount(i:HomeNode.sharers, true) = 0;
 
-invariant "Value in memory must match the value of the last write in Invalid state"
-  HomeNode.state = H_I
-    ->
-  HomeNode.val = LastWrite;
+-- Additional State Invariants
 
 invariant "Home in Shared state implies Proc in Invalid or Shared"
   Forall n : Proc do
@@ -875,22 +869,33 @@ invariant "Home in Shared state implies Proc in Invalid or Shared"
        | Procs[n].state = P_WAIT)
   end;
 
+-- Data or Value Invariants
+
+invariant "Value in memory matches value of last write, when shared or invalid"
+  (HomeNode.state = H_S | HomeNode.state = H_I)
+    ->
+  HomeNode.val = LastWrite;
+
 invariant "Values in shared state must match last write"
   Forall n : Proc do
     Procs[n].state = P_S
       ->
-      Procs[n].val = LastWrite --LastWrite is updated whenever a new value is created
+      Procs[n].val = LastWrite
   end;
 
--- Not true in our system, CCE invalidates blocks and then requests writeback, so a block may be invalid and
--- still have a valid data value
---invariant "value is undefined while invalid"
---  Forall n : Proc do
---    Procs[n].state = P_I
---      ->
---      IsUndefined(Procs[n].val)
---  end;
+invariant "Values in exclusive state must match last write"
+  Forall n : Proc do
+    Procs[n].state = P_E
+      ->
+      Procs[n].val = LastWrite
+  end;
 
+invariant "Values in modified state must match last write"
+  Forall n : Proc do
+    Procs[n].state = P_M
+      ->
+      Procs[n].val = LastWrite
+  end;
 
 invariant "Exclusive has a clean copy of data"
   Forall n : Proc do
@@ -899,25 +904,32 @@ invariant "Exclusive has a clean copy of data"
     (HomeNode.val = Procs[n].val & Procs[n].dirty = false)
   end;
 
---TODO: is there any variation of these rules that hold true?
---invariant "values in memory matches value of last write, when shared or invalid"
---  Forall n : Proc do
---    HomeNode.state = H_S | HomeNode.state = H_I
---      ->
---    HomeNode.val = LastWrite
---  end;
-
---invariant "values in memory matches value of last write, when shared"
---  Forall n : Proc do
---    HomeNode.state = H_S
---      ->
---    HomeNode.val = LastWrite
---  end;
-
-invariant "values in shared state match memory"
+invariant "Shared has a clean copy of data"
   Forall n : Proc do
     HomeNode.state = H_S & Procs[n].state = P_S
       ->
-    HomeNode.val = Procs[n].val
+    (HomeNode.val = Procs[n].val & Procs[n].dirty = false)
   end;
+
+invariant "Exclusive has a clean copy of data"
+  Forall n : Proc do
+    Procs[n].state = P_E
+      ->
+    Procs[n].dirty = false
+  end;
+
+invariant "Shared has a clean copy of data"
+  Forall n : Proc do
+    Procs[n].state = P_S
+      ->
+    Procs[n].dirty = false
+  end;
+
+-- Not necessarily true; CCE can writeback the data, making in clean in M
+--invariant "Modified has a dirty copy of data"
+--  Forall n : Proc do
+--    HomeNode.state = H_M & Procs[n].state = P_M
+--      ->
+--    (HomeNode.val != Procs[n].val & Procs[n].dirty = true)
+--  end;
 
